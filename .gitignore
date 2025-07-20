@@ -1,0 +1,5 @@
+__pycache__/
+debug-screenshots/
+venv/
+BR_AF_20250103.*
+*.log
