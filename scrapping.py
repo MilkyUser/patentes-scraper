@@ -1,19 +1,19 @@
-import selenium
-
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from typing import Generator
 
 
 _INPI_URL = 'https://busca.inpi.gov.br/pePI/jsp/patentes/PatenteSearchBasico.jsp'
 
 
-def setup_driver():
+def setup_driver() -> tuple[webdriver.Chrome, WebDriverWait]:
     
     options = Options()
-    options.add_argument("--headless=new")  
+    #options.add_argument("--headless=new")  
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox") 
     options.add_argument("--disable-dev-shm-usage")
@@ -25,7 +25,7 @@ def setup_driver():
             "profile.managed_default_content_settings.images": 2  # Bloqueia download de imagens
         }
     )
-    driver = selenium.webdriver.Chrome(options=options)
+    driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(
         driver,
         timeout=12,
@@ -57,7 +57,7 @@ def navigate_to_search_page(driver, wait):
         raise RuntimeError(f"Navigation failed: {str(e)}") from e
 
 
-def search_by_id(wait, search_key):
+def search_by_id(wait, search_key) -> str:
 
     try:
         search_field = wait.until(EC.element_to_be_clickable(
@@ -79,13 +79,13 @@ def search_by_id(wait, search_key):
         back_button = wait.until(EC.element_to_be_clickable(
             (By.CSS_SELECTOR, 'a[href="../jsp/patentes/PatenteSearchBasico.jsp"]')))
         back_button.click()
-        return data 
+        return data
         
     except Exception as e:
         raise RuntimeError(f"Search failed for {search_key}: {str(e)}") from e
 
 
-def batch_search(driver, wait, search_ids):
+def batch_search(driver, wait, search_ids) -> Generator[dict[str, str | None]]:
     
     for sid in search_ids:
 
