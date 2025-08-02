@@ -1,5 +1,7 @@
 import random
+import time
 
+from collections.abc import Sequence
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -10,6 +12,16 @@ from typing import Generator
 
 
 _INPI_URL = 'https://busca.inpi.gov.br/pePI/jsp/patentes/PatenteSearchBasico.jsp'
+DEFAULT_DELAY = (0, 3)
+
+
+def delay_x(x):
+
+    if isinstance(x, Sequence):
+        time.sleep(random.uniform(x[0], x[1]))
+    
+    elif isinstance(x, (float, int)):
+        time.sleep(x)        
 
 
 def setup_driver() -> tuple[webdriver.Chrome, WebDriverWait]:
@@ -97,6 +109,41 @@ def search_by_id(wait, search_key) -> str:
         back_button = wait.until(EC.element_to_be_clickable(
             (By.CSS_SELECTOR, 'a[href="../jsp/patentes/PatenteSearchBasico.jsp"]')))
         back_button.click()
+        return data
+        
+    except Exception as e:
+        raise RuntimeError(f"Search failed for {search_key}: {str(e)}") from e
+
+
+def search_by_id_with_delay(wait, search_key, delay=DEFAULT_DELAY) -> str:
+
+    try:
+        
+        search_field = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'input.basic[name="NumPedido"]'))
+        )
+        search_field.clear()
+        search_field.send_keys(search_key)
+        search_button = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'input.basic:nth-child(2)'))
+        )
+        delay_x(delay)
+        search_button.click()
+        
+        result_link = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'a.visitado'))
+        )
+        delay_x(delay)
+        result_link.click()
+        
+        data = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#principal > table:nth-child(6)'))
+        ).get_attribute('innerHTML')
+        back_button = wait.until(EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, 'a[href="../jsp/patentes/PatenteSearchBasico.jsp"]')))
+        delay_x(delay)
+        back_button.click()
+        
         return data
         
     except Exception as e:
