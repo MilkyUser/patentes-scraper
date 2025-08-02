@@ -1,3 +1,5 @@
+import random
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -16,22 +18,38 @@ def setup_driver() -> tuple[webdriver.Chrome, WebDriverWait]:
     #options.add_argument("--headless=new")  
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox") 
+    options.add_argument("--enable-webgl")
+    options.add_argument("--enable-javascript")
     options.add_argument("--disable-dev-shm-usage")
-    options.add_argument('--disable-background-networking')
     options.add_argument('--disable-default-apps')
     options.add_argument('--disable-notifications')
-    options.add_experimental_option(
-        "prefs", {
-            "profile.managed_default_content_settings.images": 2  # Bloqueia download de imagens
-        }
-    )
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+    ]
+    options.add_argument(f"user-agent={random.choice(user_agents)}")
     driver = webdriver.Chrome(options=options)
     wait = WebDriverWait(
         driver,
         timeout=12,
         poll_frequency=0.3,
-        ignored_exceptions=(NoSuchElementException)
+        ignored_exceptions=(NoSuchElementException,)
     )
+
+    driver.execute_cdp_cmd(
+        "Page.addScriptToEvaluateOnNewDocument",
+        {
+            "source": """
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+            """
+        }
+    )
+
     return driver, wait
 
 
@@ -85,18 +103,19 @@ def search_by_id(wait, search_key) -> str:
         raise RuntimeError(f"Search failed for {search_key}: {str(e)}") from e
 
 
-def batch_search(driver, wait, search_ids) -> Generator[dict[str, str | None]]:
+def batch_search(driver, wait, search_ids) -> Generator[dict[str, str | None | bool]]:
     
     for sid in search_ids:
-
+        print(f'DRIVER {driver.service.process.pid}: SEARCH KEY {sid}')
         try:
-            yield {'doc-number': sid, 'data': search_by_id(wait, sid)}
+            data = search_by_id(wait, sid)
+            yield {'doc-number': sid, 'success': True, 'data': data, 'url': driver.current_url}
         
         except RuntimeError as re:
 
             if isinstance(re.__cause__, TimeoutException):
                 navigate_to_search_page(driver, wait)
-                yield {'doc-number': sid, 'data': None}
+                yield {'doc-number': sid, 'success': False, 'data': None, 'url': None}
                 
             else:
                 raise
