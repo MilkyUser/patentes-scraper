@@ -151,11 +151,11 @@ def search_by_id_with_delay(wait, search_key, delay=DEFAULT_DELAY) -> str:
 
 
 def batch_search(driver, wait, search_ids) -> Generator[dict[str, str | None | bool]]:
-    
+
     for sid in search_ids:
         print(f'DRIVER {driver.service.process.pid}: SEARCH KEY {sid}')
         try:
-            data = search_by_id(wait, sid)
+            data = search_by_id_with_delay(wait, sid, DEFAULT_DELAY)
             yield {'doc-number': sid, 'success': True, 'data': data, 'url': driver.current_url}
         
         except RuntimeError as re:
