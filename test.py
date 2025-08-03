@@ -210,16 +210,21 @@ def get_process_memory_usage(pid):
     """Get memory usage (PSS) of a process and its children in MB."""
     try:
         process = psutil.Process(pid)
-        memory = process.memory_full_info().pss / (1024 * 1024)  # Convert to MB
+        memory_full_info = process.memory_full_info()
+        memory_uss = memory_full_info.uss / (1024 ** 2)  # Convert to MB
+        memory_pss = memory_full_info.pss / (1024 ** 2)
+        memory_rss = memory_full_info.rss / (1024 ** 2)
         children = process.children(recursive=True)  # Get all child processes
-        total_memory = memory
+        _total_memory = [memory_uss, memory_pss, memory_rss] 
         for child in children:
             try:
-                child_memory = child.memory_info().rss / (1024 * 1024)
-                total_memory += child_memory
+                child_memory_full_info = child.memory_full_info()
+                _total_memory[0] += child_memory_full_info.uss  / (1024 ** 2)
+                _total_memory[1] += child_memory_full_info.pss  / (1024 ** 2)
+                _total_memory[2] += child_memory_full_info.rss  / (1024 ** 2)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
-        return total_memory
+        return _total_memory
     except psutil.NoSuchProcess:
         return 0.0
 
@@ -232,16 +237,15 @@ if __name__ == '__main__':
     webdriver_pid = driver.service.process.pid
     print(f"WebDriver PID: {webdriver_pid}")
     total_memory = get_process_memory_usage(webdriver_pid)
-    print(f"Total memory usage (launch): {total_memory:.2f} MB")
+    print(f"LAUNCH,{total_memory[0]:.2f},{total_memory[1]:.2f},{total_memory[2]:.2f}")
     navigate_to_search_page(driver, wait)
     total_memory = get_process_memory_usage(webdriver_pid)
-    print(f"Total memory usage (search page): {total_memory:.2f} MB")
+    print(f"NAVIGATE,{total_memory[0]:.2f},{total_memory[1]:.2f},{total_memory[2]:.2f}")
     
     for index, search_key in enumerate(search_keys):
-        print(f'searching key <{search_key}>')
         search_by_id(wait, search_key)
         total_memory = get_process_memory_usage(webdriver_pid)
-        print(f"Total memory usage (after {index+1}º search): {total_memory:.2f} MB")
+        print(f"SEARCH KEY {search_key},{total_memory[0]:.2f},{total_memory[1]:.2f},{total_memory[2]:.2f}")
     
     driver.execute_script("window.myBigArray = Array(20000000).fill().map(Math.random);")
     total_memory = get_process_memory_usage(webdriver_pid)
